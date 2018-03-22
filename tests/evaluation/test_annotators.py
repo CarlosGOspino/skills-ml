@@ -27,7 +27,7 @@ def test_BratExperiment_start():
         brat_s3_path='test-bucket/brat'
     )
     experiment.start(
-        sample=Sample(base_path='s3://test-bucket/samples/', sample_name='300_weighted'),
+        sample=Sample(base_path='s3://test-bucket/samples', sample_name='300_weighted'),
         minimum_annotations_per_posting=2,
         max_postings_per_allocation=20,
         entities_with_shortcuts=(
@@ -39,7 +39,7 @@ def test_BratExperiment_start():
     s3 = s3fs.S3FileSystem()
 
     # first assert that some shallow metadata was passed through
-    assert experiment.metadata['sample_base_path'] == 's3://test-bucket/samples/'
+    assert experiment.metadata['sample_base_path'] == 's3://test-bucket/samples'
     assert experiment.metadata['sample_name'] == '300_weighted'
     assert experiment.metadata['entities_with_shortcuts'] == (('c', 'Competency'),)
     assert experiment.metadata['minimum_annotations_per_posting'] == 2
@@ -73,16 +73,16 @@ def test_BratExperiment_start():
     # so that's what should get written
     assert sorted(retrieved_descriptions) == sorted([str(i) for i in range(100, 200)])
 
-    def assert_conf_equals(conf_name, expected):
+    def assert_conf_contains(conf_name, expected):
         with s3.open('{path}/{conf_name}'.format(
                 path=experiment.brat_config_path,
                 conf_name=conf_name
         ), 'rb') as f:
-            assert f.read().decode('utf-8') == expected
+            assert expected in f.read().decode('utf-8')
 
-    assert_conf_equals('visual.conf', '[labels]\nCompetency\n')
-    assert_conf_equals('annotation.conf', '[entities]\nCompetency\n')
-    assert_conf_equals('kb_shortcuts.conf', 'c Competency\n')
+    assert_conf_contains('visual.conf', '[labels]\nCompetency\n')
+    assert_conf_contains('annotation.conf', '[entities]\nCompetency\n')
+    assert_conf_contains('kb_shortcuts.conf', 'c Competency\n')
 
 
 @mock_s3
@@ -137,7 +137,7 @@ def test_BratExperiment_add_allocation():
         brat_s3_path='test-bucket/brat'
     )
     experiment.start(
-        sample=Sample(base_path='s3://test-bucket/samples/', sample_name='300_weighted'),
+        sample=Sample(base_path='s3://test-bucket/samples', sample_name='300_weighted'),
         minimum_annotations_per_posting=2,
         max_postings_per_allocation=20,
         entities_with_shortcuts=(
