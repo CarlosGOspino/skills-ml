@@ -21,10 +21,10 @@ class BratExperiment(object):
         self.experiment_name = experiment_name
         self.brat_s3_path = brat_s3_path
         self.metadata = S3BackedJsonDict(
-            path=self.experiment_path + '/metadata.json'
+            path=self.experiment_path + '/metadata'
         )
         self.user_pw_store = S3BackedJsonDict(
-            path=self.experiment_path + '/user-pws.json'
+            path=self.experiment_path + '/user-pws'
         )
         self.s3 = s3fs.S3FileSystem()
 
@@ -80,6 +80,7 @@ class BratExperiment(object):
                 new allocations is not automatic.
                 Defaults to 10
         """
+        logging.info('Starting experiment! Wait for a bit')
         self.metadata['sample_base_path'] = sample.base_path
         self.metadata['sample_name'] = sample.name
         self.metadata['entities_with_shortcuts'] = entities_with_shortcuts
@@ -88,6 +89,7 @@ class BratExperiment(object):
 
         # 1. Output job posting text
         self.metadata['units'] = {}
+        logging.info('Dividing sample into bundles of size %s', max_postings_per_allocation)
         for unit_num, batch_postings in enumerate(Batch(sample, max_postings_per_allocation)):
             unit_name = 'unit_{}'.format(unit_num)
             self.metadata['units'][unit_name] = []
@@ -101,6 +103,7 @@ class BratExperiment(object):
                 with self.s3.open(outfilename + '.ann', 'wb') as f:
                     f.write(''.encode('utf-8'))
         self.metadata.save()
+        logging.info('Done creating bundles. Now creating BRAT configuration')
 
         # 2. Output annotation.conf with lists of entities
         with self.s3.open('/'.join([self.brat_config_path, 'annotation.conf']), 'wb') as f:
@@ -108,6 +111,9 @@ class BratExperiment(object):
             for _, entity_name in entities_with_shortcuts:
                 f.write(entity_name.encode('utf-8'))
                 f.write('\n'.encode('utf-8'))
+            f.write('[relations]\n\n# none defined'.encode('utf-8'))
+            f.write('[attributes]\n\n# none defined'.encode('utf-8'))
+            f.write('[events]\n\n# none defined'.encode('utf-8'))
 
         # 3. Output kb_shortcuts.conf with quick type selection for each entity
         with self.s3.open('/'.join([self.brat_config_path, 'kb_shortcuts.conf']), 'wb') as f:
@@ -122,6 +128,8 @@ class BratExperiment(object):
                 f.write(entity_name.encode('utf-8'))
                 f.write('\n'.encode('utf-8'))
 
+        logging.info('Done creating BRAT configuration. All data is at %s', self.experiment_path)
+
     def add_user(self, username, password):
         """Creates a user with an allocation
 
@@ -135,7 +143,7 @@ class BratExperiment(object):
             raise ValueError('User {} already created'.format(username))
         self.user_pw_store[username] = password
         self.user_pw_store.save()
-        self.add_allocation(username)
+        return self.add_allocation(username)
 
     def needs_allocation(self, unit_name):
         """Whether or not this unit needs to be allocated again.
@@ -206,6 +214,7 @@ class BratExperiment(object):
 
         # record in metadata the fact that the user has been allocated this
         self.metadata['allocations'][user_name].append(unit_to_allocate)
+        logging.info('Allocation created! Directory is %s', dest_dir)
         return dest_dir
 
     def inter_rater_reliability(self):
