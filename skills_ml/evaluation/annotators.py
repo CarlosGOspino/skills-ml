@@ -9,9 +9,13 @@ from skills_ml.job_postings import JobPosting
 
 class BratExperiment(object):
     """Manage a BRAT experiment. Handles:
+
     1. The creation of BRAT config for a specific sample of job postings
     2. Adding users to the installation and allocating them semi-hidden job postings
     3. The parsing of the annotation results at the end of the experiment
+
+    Syncs data to an experiment directory on S3.
+    BRAT installations are expected to sync this data down regularly.
     """
     def __init__(self, experiment_name, brat_s3_path):
         self.experiment_name = experiment_name
